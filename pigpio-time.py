@@ -5,6 +5,9 @@ import time
 import pigpio
 
 import datetime
+
+import sys
+
 now = datetime.datetime.now()
 print now.year, now.month, now.day, now.hour, now.minute, now.second
 
@@ -38,38 +41,55 @@ wid = 1
 #
 #pi.stop()
 
+lasthour = 0
+lastminute = 0
+
 if wid >= 0:
   while 1:
-    datetime.datetime.now()
+    now = datetime.datetime.now()
     if now.hour > 12:
       twelvehour = now.hour - 12
     else:
       twelvehour = now.hour
 
-    halfperiod = 1000000/(2 * ( twelvehour + ( now.minute/60.0 ) ) * (202/12.0))
-    minhalfperiod = (30000 * 63.0) / now.minute
-    print("hour: %s, %s" % (twelvehour,halfperiod))
-    print("hour: %s, %s" % (now.minute,minhalfperiod))
+    if(now.hour==lasthour and now.minute==lastminute):
+      # No update required if no change - let the pulse trains continue
+      sys.stdout.write('.')
+    else:
+      lasthour = now.hour
+      lastminute = now.minute
 
-    square = []
-    minsquare = []
-    #                          ON       OFF    MICROS
-    square.append(pigpio.pulse(1<<GPIO, 0,       halfperiod))
-    square.append(pigpio.pulse(0,       1<<GPIO, halfperiod))
+      halfperiod = 1000000/(2 * ( twelvehour + ( now.minute/60.0 ) ) * (202/12.0))
+      minhalfperiod = (30000 * 63.0) / now.minute
+      print("hour: %s, half period in us: %s" % (twelvehour,halfperiod))
+      print("minute: %s, half-period in us: %s" % (now.minute,minhalfperiod))
 
-    minsquare.append(pigpio.pulse(1<<GPIOMIN, 0,       minhalfperiod))
-    minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod))
+      square = []
+      minsquare = []
+      # Duration of pulse train in us (1000000us = 1s)
+      duration = 10000000
 
-    pi.wave_clear()
+      pi.wave_clear()
+
+      # Build up 1s worth of pulses for the hour - do a simple integer division - this is
+      # accurate enough for our use case
+      for i in xrange(int(duration/(2*halfperiod))):
+        #                          ON       OFF    MICROS
+        square.append(pigpio.pulse(1<<GPIO, 0,       halfperiod))
+        square.append(pigpio.pulse(0,       1<<GPIO, halfperiod))
+
+      pi.wave_add_generic(square)
+ 
+      # Now build up 1s worth of pulses for the minute readout as above
+      for i in xrange(int( duration / ( 2 * minhalfperiod ) ) ):
+        minsquare.append(pigpio.pulse(1<<GPIOMIN, 0,       minhalfperiod))
+        minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod))
     
-    pi.wave_add_generic(square)
-    hourwid = pi.wave_create()
+      pi.wave_add_generic(minsquare)
+  
+      wid = pi.wave_create()
 
-    pi.wave_add_generic(minsquare)
-    minwid = pi.wave_create()
+      pi.wave_send_repeat(wid)
+      #pi.wave_send_repeat(minwid)
 
-    #pi.wave_chain([hourwid, minwid, 255, 0,])
-    pi.hardware_PWM(17, 100, 500000)
-    #pi.wave_send_repeat(hourwid)
-    #pi.wave_send_repeat(minwid)
     time.sleep(1)
