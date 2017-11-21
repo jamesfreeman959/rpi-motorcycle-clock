@@ -79,11 +79,15 @@ if wid >= 0:
         square.append(pigpio.pulse(0,       1<<GPIO, halfperiod))
 
       pi.wave_add_generic(square)
- 
-      # Now build up 1s worth of pulses for the minute readout as above
-      for i in xrange(int( duration / ( 2 * minhalfperiod ) ) ):
-        minsquare.append(pigpio.pulse(1<<GPIOMIN, 0,       minhalfperiod))
-        minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod))
+
+      if(minhalfperiod>0):
+        # Now build up 1s worth of pulses for the minute readout as above
+        for i in xrange(int( duration / ( 2 * minhalfperiod ) ) ):
+          minsquare.append(pigpio.pulse(1<<GPIOMIN, 0,       minhalfperiod))
+          minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod))
+      else:
+        for i in xrange(int(duration/(2*halfperiod))):
+          minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod*2))
     
       pi.wave_add_generic(minsquare)
   
