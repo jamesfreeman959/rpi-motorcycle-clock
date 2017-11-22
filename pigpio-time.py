@@ -49,6 +49,9 @@ if wid >= 0:
     now = datetime.datetime.now()
     if now.hour > 12:
       twelvehour = now.hour - 12
+    elif now.hour == 0:
+      # Prevent divide by zero errors - this is a 12 hour dial so "0" is actually 12am
+      twelvehour = 12
     else:
       twelvehour = now.hour
 
@@ -60,7 +63,10 @@ if wid >= 0:
       lastminute = now.minute
 
       halfperiod = 1000000/(2 * ( twelvehour + ( now.minute/60.0 ) ) * (202/12.0))
-      minhalfperiod = (30000 * 63.0) / now.minute
+      if now.minute > 0:
+        minhalfperiod = (30000 * 63.0) / now.minute
+      else:  
+        minhalfperiod = 0
       print("hour: %s, half period in us: %s" % (twelvehour,halfperiod))
       print("minute: %s, half-period in us: %s" % (now.minute,minhalfperiod))
 
@@ -86,6 +92,7 @@ if wid >= 0:
           minsquare.append(pigpio.pulse(1<<GPIOMIN, 0,       minhalfperiod))
           minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod))
       else:
+        # Minutes == 0 should mean a DC output (i.e. no ON pulse)  
         for i in xrange(int(duration/(2*halfperiod))):
           minsquare.append(pigpio.pulse(0,       1<<GPIOMIN, minhalfperiod*2))
     
